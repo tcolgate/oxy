@@ -171,13 +171,17 @@ func (f *httpForwarder) serveHTTP(w http.ResponseWriter, req *http.Request, ctx 
 	// Remove hop-by-hop headers.
 	utils.RemoveHeaders(w.Header(), HopHeaders...)
 	w.WriteHeader(response.StatusCode)
-	_, err = io.Copy(w, response.Body)
+	written, err = io.Copy(w, response.Body)
 	defer response.Body.Close()
 
 	if err != nil {
 		ctx.log.Errorf("Error copying upstream response Body: %v", err)
 		ctx.errHandler.ServeHTTP(w, req, err)
 		return
+	}
+
+	if written != 0 {
+		w.Header().Set(ContentLength, strconv.FormatInt(written, 10))
 	}
 }
 
