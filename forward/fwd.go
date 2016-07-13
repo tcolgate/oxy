@@ -4,7 +4,10 @@
 package forward
 
 import (
+	"bufio"
+	"bytes"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -146,6 +149,21 @@ func (f *Forwarder) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func scanSseLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.Index(data, []byte{'\n', '\n'}); i >= 0 {
+		return i + 2, data[0 : i+2], nil
+	}
+	// If we're at EOF, we have a final, non-terminated line. Return it.
+	if atEOF {
+		return len(data), data, nil
+	}
+	// Request more data.
+	return 0, nil, nil
+}
+
 // serveHTTP forwards HTTP traffic using the configured transport
 func (f *httpForwarder) serveHTTP(w http.ResponseWriter, req *http.Request, ctx *handlerContext) {
 	start := time.Now().UTC()
@@ -154,6 +172,35 @@ func (f *httpForwarder) serveHTTP(w http.ResponseWriter, req *http.Request, ctx 
 		ctx.log.Errorf("Error forwarding to %v, err: %v", req.URL, err)
 		ctx.errHandler.ServeHTTP(w, req, err)
 		return
+	}
+
+	utils.CopyHeaders(w.Header(), response.Header)
+	// Remove hop-by-hop headers.
+	utils.RemoveHeaders(w.Header(), HopHeaders...)
+	w.WriteHeader(response.StatusCode)
+
+	var written int64
+	if "text/event-stream" == response.Header.Get(ContentType) {
+		// SSE
+		scanner := bufio.NewScanner(response.Body)
+		scanner.Split(scanSseLines)
+		for scanner.Scan() {
+			bytesWritten, err := w.Write(scanner.Bytes())
+			if err != nil {
+				ctx.log.Errorf("Error writing SSE event : %v", err)
+				ctx.errHandler.ServeHTTP(w, req, err)
+				return
+			}
+			w.(http.Flusher).Flush()
+			written += int64(bytesWritten)
+		}
+		if err := scanner.Err(); err != nil {
+			ctx.log.Errorf("Error reading SSE event : %v", err)
+			ctx.errHandler.ServeHTTP(w, req, err)
+			return
+		}
+	} else {
+		written, err = io.Copy(w, response.Body)
 	}
 
 	if req.TLS != nil {
@@ -168,11 +215,6 @@ func (f *httpForwarder) serveHTTP(w http.ResponseWriter, req *http.Request, ctx 
 			req.URL, response.StatusCode, time.Now().UTC().Sub(start))
 	}
 
-	utils.CopyHeaders(w.Header(), response.Header)
-	// Remove hop-by-hop headers.
-	utils.RemoveHeaders(w.Header(), HopHeaders...)
-	w.WriteHeader(response.StatusCode)
-	written, err := io.Copy(w, response.Body)
 	defer response.Body.Close()
 
 	if err != nil {
