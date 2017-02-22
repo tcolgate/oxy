@@ -282,7 +282,7 @@ func (f *websocketForwarder) serveHTTP(w http.ResponseWriter, req *http.Request,
 	defer underlyingConn.Close()
 	defer targetConn.Close()
 
-	log.Infof("Writing outgoing Websocket request to target connection: %+v", outReq)
+	ctx.log.Infof("Writing outgoing Websocket request to target connection: %+v", outReq)
 
 	// write the modified incoming request to the dialed connection
 	if err = outReq.Write(targetConn); err != nil {
