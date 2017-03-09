@@ -253,7 +253,7 @@ func (f *websocketForwarder) serveHTTP(w http.ResponseWriter, req *http.Request,
 
 	if outReq.URL.Scheme == "wss" {
 		if f.TLSClientConfig == nil {
-			f.TLSClientConfig = &tls.Config{}
+			f.TLSClientConfig = http.DefaultTransport.(*http.Transport).TLSClientConfig
 		}
 		dial = func(network, address string) (net.Conn, error) {
 			return tls.Dial("tcp", host, f.TLSClientConfig)
