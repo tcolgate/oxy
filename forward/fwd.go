@@ -194,6 +194,7 @@ func (f *httpForwarder) serveHTTP(w http.ResponseWriter, req *http.Request, ctx 
 		return
 	}
 
+	//No defer on body close in order to force announce trailer after body close
 	response.Body.Close()
 
 	forceSetTrailers := len(response.Trailer) != announcedTrailerKeyCount
