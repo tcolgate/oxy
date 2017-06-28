@@ -159,6 +159,7 @@ func (f *httpForwarder) serveHTTP(w http.ResponseWriter, req *http.Request, ctx 
 	start := time.Now().UTC()
 
 	response, err := f.roundTripper.RoundTrip(f.copyRequest(req, req.URL))
+
 	if err != nil {
 		ctx.log.Errorf("Error forwarding to %v, err: %v", req.URL, err)
 		ctx.errHandler.ServeHTTP(w, req, err)
@@ -194,8 +195,7 @@ func (f *httpForwarder) serveHTTP(w http.ResponseWriter, req *http.Request, ctx 
 		return
 	}
 
-	//No defer on body close in order to force announce trailer after body close
-	response.Body.Close()
+	defer response.Body.Close()
 
 	forceSetTrailers := len(response.Trailer) != announcedTrailerKeyCount
 	shallowCopyTrailers(w.Header(), response.Trailer, forceSetTrailers)
