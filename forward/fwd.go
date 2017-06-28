@@ -173,7 +173,7 @@ func (f *httpForwarder) serveHTTP(w http.ResponseWriter, req *http.Request, ctx 
 
 	announcedTrailerKeyCount := len(response.Trailer)
 	if announcedTrailerKeyCount > 0 {
-		trailerKeys := make([]string, 0, len(response.Trailer))
+		trailerKeys := make([]string, 0, announcedTrailerKeyCount)
 		for k := range response.Trailer {
 			trailerKeys = append(trailerKeys, k)
 		}
