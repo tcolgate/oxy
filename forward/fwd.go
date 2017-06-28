@@ -191,7 +191,7 @@ func (f *httpForwarder) serveHTTP(w http.ResponseWriter, req *http.Request, ctx 
 	}
 	written, err := io.Copy(newResponseFlusher(w, stream), response.Body)
 	if err != nil {
-		ctx.log.Errorf("Error copying upstream response Body: %v", err)
+		ctx.log.Errorf("Error copying upstream response body: %v", err)
 		ctx.errHandler.ServeHTTP(w, req, err)
 		return
 	}
