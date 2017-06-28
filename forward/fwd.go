@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/vulcand/oxy/utils"
+	"strconv"
 )
 
 // ReqRewriter can alter request headers and body
@@ -188,7 +189,7 @@ func (f *httpForwarder) serveHTTP(w http.ResponseWriter, req *http.Request, ctx 
 			stream = contentType == "text/event-stream"
 		}
 	}
-	_, err = io.Copy(newResponseFlusher(w, stream), response.Body)
+	written, err := io.Copy(newResponseFlusher(w, stream), response.Body)
 	if err != nil {
 		ctx.log.Errorf("Error copying upstream response Body: %v", err)
 		ctx.errHandler.ServeHTTP(w, req, err)
@@ -199,6 +200,10 @@ func (f *httpForwarder) serveHTTP(w http.ResponseWriter, req *http.Request, ctx 
 
 	forceSetTrailers := len(response.Trailer) != announcedTrailerKeyCount
 	shallowCopyTrailers(w.Header(), response.Trailer, forceSetTrailers)
+
+	if written != 0 {
+		w.Header().Set(ContentLength, strconv.FormatInt(written, 10))
+	}
 
 	if req.TLS != nil {
 		ctx.log.Infof("Round trip: %v, code: %v, duration: %v tls:version: %x, tls:resume:%t, tls:csuite:%x, tls:server:%v",
@@ -211,6 +216,7 @@ func (f *httpForwarder) serveHTTP(w http.ResponseWriter, req *http.Request, ctx 
 		ctx.log.Infof("Round trip: %v, code: %v, duration: %v",
 			req.URL, response.StatusCode, time.Now().UTC().Sub(start))
 	}
+
 }
 
 // copyRequest makes a copy of the specified request to be sent using the configured
