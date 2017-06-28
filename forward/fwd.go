@@ -11,11 +11,11 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/vulcand/oxy/utils"
-	"strconv"
 )
 
 // ReqRewriter can alter request headers and body
